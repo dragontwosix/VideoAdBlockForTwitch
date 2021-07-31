@@ -466,7 +466,8 @@ function removeVideoAds() {
             headers: {
                 'Client-ID': ClientID,
                 'Device-ID': GQLDeviceID,
-                'X-Device-Id': GQLDeviceID
+                'X-Device-Id': GQLDeviceID,
+                'Client-Version': '549caacc-5e1f-40d5-9e35-0d8ca886e4d3'
             }
         });
     }
