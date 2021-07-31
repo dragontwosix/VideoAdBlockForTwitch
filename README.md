@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+4.9.3:</br>
+Added client version header.</br>
+
 4.9.2 (Firefox only):</br>
 Added missing block URL for ad serving script in Firefox.</br>
 
