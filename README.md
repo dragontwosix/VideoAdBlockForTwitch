@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+4.9.4:</br>
+Made client version header dynamic, rather than static.</br>
+
 4.9.3:</br>
 Added client version header.</br>
 
