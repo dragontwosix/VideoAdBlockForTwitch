@@ -103,6 +103,7 @@ function removeVideoAds() {
     function declareOptions(scope) {
         scope.AdSignifier = 'stitched-ad';
         scope.ClientID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
+        scope.ClientVersion = 'null'
         scope.PlayerType1 = 'site'; //Source
         scope.PlayerType2 = 'thunderdome'; //480p
         scope.PlayerType3 = 'pop_tart'; //480p
@@ -145,6 +146,9 @@ function removeVideoAds() {
                 ${parseAttributes.toString()}
                 declareOptions(self);
                 self.addEventListener('message', function(e) {
+                    if (e.data.key == 'UpdateClientVersion') {
+                        ClientVersion = e.data.value;
+                    }
                     if (e.data.key == 'UpdateDeviceId') {
                         GQLDeviceID = e.data.value;
                     }
@@ -467,7 +471,7 @@ function removeVideoAds() {
                 'Client-ID': ClientID,
                 'Device-ID': GQLDeviceID,
                 'X-Device-Id': GQLDeviceID,
-                'Client-Version': '549caacc-5e1f-40d5-9e35-0d8ca886e4d3'
+                'Client-Version': ClientVersion
             }
         });
     }
@@ -562,6 +566,17 @@ function removeVideoAds() {
                         twitchMainWorker.postMessage({
                             key: 'UpdateDeviceId',
                             value: GQLDeviceID
+                        });
+                    }
+                    //Client version is used in GQL requests.
+                    var clientVersion = init.headers['Client-Version'];
+                    if (clientVersion && typeof clientVersion == 'string') {
+                        ClientVersion = clientVersion;
+                    }
+                    if (ClientVersion && twitchMainWorker) {
+                        twitchMainWorker.postMessage({
+                            key: 'UpdateClientVersion',
+                            value: ClientVersion
                         });
                     }
                     //To prevent pause/resume loop for mid-rolls.
