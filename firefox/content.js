@@ -101,7 +101,7 @@ function removeVideoAds() {
     }, false);
 
     function declareOptions(scope) {
-        scope.AdSignifier = 'stitched-ad';
+        scope.AdSignifier = 'stitched';
         scope.ClientID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
         scope.ClientVersion = 'null'
         scope.PlayerType1 = 'site'; //Source
@@ -148,6 +148,9 @@ function removeVideoAds() {
                 self.addEventListener('message', function(e) {
                     if (e.data.key == 'UpdateClientVersion') {
                         ClientVersion = e.data.value;
+                    }
+                    if (e.data.key == 'UpdateClientId') {
+                        ClientID = e.data.value;
                     }
                     if (e.data.key == 'UpdateDeviceId') {
                         GQLDeviceID = e.data.value;
@@ -577,6 +580,22 @@ function removeVideoAds() {
                         twitchMainWorker.postMessage({
                             key: 'UpdateClientVersion',
                             value: ClientVersion
+                        });
+                    }
+                    //Client ID is used in GQL requests.
+                    var clientId = init.headers['Client-ID'];
+                    if (clientId && typeof clientId == 'string') {
+                        ClientID = clientId;
+                    } else {
+                        clientId = init.headers['Client-Id'];
+                        if (clientId && typeof clientId == 'string') {
+                            ClientID = clientId;
+                        }
+                    }
+                    if (ClientID && twitchMainWorker) {
+                        twitchMainWorker.postMessage({
+                            key: 'UpdateClientId',
+                            value: ClientID
                         });
                     }
                     //To prevent pause/resume loop for mid-rolls.
