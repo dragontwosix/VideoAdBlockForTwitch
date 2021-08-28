@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.0.1:</br>
+Fixed missing video player bug when pausing/resuming.</br>
+
 5.0.0:</br>
 The extension will now automatically adjust the ad-free stream quality, without users needing to use the extension settings. This will help new users with buffering issues.</br>
 
