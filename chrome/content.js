@@ -149,10 +149,12 @@ function removeVideoAds() {
                 if (e.data.key == 'GetVideoQuality') {
                     if (twitchMainWorker) {
                         var currentQuality = doTwitchPlayerTask(false, true);
-                        twitchMainWorker.postMessage({
-                            key: 'SetCurrentPlayerQuality',
-                            value: currentQuality
-                        });
+                        if (twitchMainWorker) {
+                            twitchMainWorker.postMessage({
+                                key: 'SetCurrentPlayerQuality',
+                                value: currentQuality
+                            });
+                        }
                     }
                 } else if (e.data.key == 'ShowAdBlockBanner') {
                     if (adBlockDiv == null) {
