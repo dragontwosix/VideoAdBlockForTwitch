@@ -4,37 +4,20 @@ const isFirefox = !chrome.app;
 
 function updateSettings() {
     if (isFirefox) {
-        var fullQuality = browser.storage.sync.get('fullQualityTTV');
-        fullQuality.then((res) => {
-            if (res.fullQualityTTV == "true" || res.fullQualityTTV == "false") {
-                window.postMessage({
-                    type: "fullQuality",
-                    value: res.fullQualityTTV
-                }, "*");
-            }
-        });
         var hideBlockingMessage = browser.storage.sync.get('blockingMessageTTV');
         hideBlockingMessage.then((res) => {
             if (res.blockingMessageTTV == "true" || res.blockingMessageTTV == "false") {
                 window.postMessage({
-                    type: "hideBlockingMessage",
+                    type: "SetHideBlockingMessage",
                     value: res.blockingMessageTTV
                 }, "*");
             }
         });
     } else {
-        chrome.storage.local.get(['fullQualityTTV'], function(result) {
-            if (result.fullQualityTTV == "true" || result.fullQualityTTV == "false") {
-                window.postMessage({
-                    type: "fullQuality",
-                    value: result.fullQualityTTV
-                }, "*");
-            }
-        });
         chrome.storage.local.get(['blockingMessageTTV'], function(result) {
             if (result.blockingMessageTTV == "true" || result.blockingMessageTTV == "false") {
                 window.postMessage({
-                    type: "hideBlockingMessage",
+                    type: "SetHideBlockingMessage",
                     value: result.blockingMessageTTV
                 }, "*");
             }
@@ -83,17 +66,10 @@ function removeVideoAds() {
     window.addEventListener("message", (event) => {
         if (event.source != window)
             return;
-        if (event.data.type && (event.data.type == "fullQuality")) {
+        if (event.data.type && (event.data.type == "SetHideBlockingMessage")) {
             if (twitchMainWorker) {
                 twitchMainWorker.postMessage({
-                    key: 'fullQuality',
-                    value: event.data.value
-                });
-            }
-        } else if (event.data.type && (event.data.type == "hideBlockingMessage")) {
-            if (twitchMainWorker) {
-                twitchMainWorker.postMessage({
-                    key: 'hideBlockingMessage',
+                    key: 'SetHideBlockingMessage',
                     value: event.data.value
                 });
             }
@@ -103,22 +79,24 @@ function removeVideoAds() {
     function declareOptions(scope) {
         scope.AdSignifier = 'stitched';
         scope.ClientID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
-        scope.ClientVersion = 'null'
+        scope.ClientVersion = 'null';
         scope.PlayerType1 = 'site'; //Source
         scope.PlayerType2 = 'thunderdome'; //480p
         scope.PlayerType3 = 'pop_tart'; //480p
         scope.PlayerType4 = 'picture-by-picture'; //360p
-        scope.CurrentChannelNameFromM3U8 = null;
-        scope.RootM3U8Params = null;
+        scope.CurrentChannelName = null;
+        scope.UsherParams = null;
         scope.WasShowingAd = false;
         scope.GQLDeviceID = null;
-        scope.FullQuality = true;
         scope.HideBlockingMessage = false;
+        scope.CurrentVideoPlayerQuality = null;
     }
 
     declareOptions(window);
 
     var twitchMainWorker = null;
+
+    var videoPlayer = null;
 
     var adBlockDiv = null;
 
@@ -146,23 +124,15 @@ function removeVideoAds() {
                 ${parseAttributes.toString()}
                 declareOptions(self);
                 self.addEventListener('message', function(e) {
-                    if (e.data.key == 'UpdateClientVersion') {
+                    if (e.data.key == 'SetCurrentPlayerQuality') {
+                        CurrentVideoPlayerQuality = e.data.value;
+                    } else if (e.data.key == 'UpdateClientVersion') {
                         ClientVersion = e.data.value;
-                    }
-                    if (e.data.key == 'UpdateClientId') {
+                    } else if (e.data.key == 'UpdateClientId') {
                         ClientID = e.data.value;
-                    }
-                    if (e.data.key == 'UpdateDeviceId') {
+                    } else if (e.data.key == 'UpdateDeviceId') {
                         GQLDeviceID = e.data.value;
-                    }
-                    if (e.data.key == 'fullQuality') {
-                        if (e.data.value == "true") {
-                        FullQuality = true;
-                        } else if (e.data.value == "false") {
-                        FullQuality = false;
-                        }
-                    }
-                    if (e.data.key == 'hideBlockingMessage') {
+                    } else if (e.data.key == 'SetHideBlockingMessage') {
                         if (e.data.value == "true") {
                         HideBlockingMessage = true;
                         } else if (e.data.value == "false") {
@@ -176,7 +146,15 @@ function removeVideoAds() {
             super(URL.createObjectURL(new Blob([newBlobStr])));
             twitchMainWorker = this;
             this.onmessage = function(e) {
-                if (e.data.key == 'ShowAdBlockBanner') {
+                if (e.data.key == 'GetVideoQuality') {
+                    if (twitchMainWorker) {
+                        var currentQuality = doTwitchPlayerTask(false, true);
+                        twitchMainWorker.postMessage({
+                            key: 'SetCurrentPlayerQuality',
+                            value: currentQuality
+                        });
+                    }
+                } else if (e.data.key == 'ShowAdBlockBanner') {
                     if (adBlockDiv == null) {
                         adBlockDiv = getAdBlockDiv();
                     }
@@ -188,7 +166,7 @@ function removeVideoAds() {
                     }
                     adBlockDiv.style.display = 'none';
                 } else if (e.data.key == 'PauseResumePlayer') {
-                    reloadTwitchPlayer(true);
+                    doTwitchPlayerTask(true, false);
                 } else if (e.data.key == 'ShowDonateBanner') {
                     if (adBlockDiv == null) {
                         adBlockDiv = getAdBlockDiv();
@@ -233,10 +211,23 @@ function removeVideoAds() {
                     return new Promise(function(resolve, reject) {
                         var processAfter = async function(response) {
                             //Here we check the m3u8 for any ads and also try fallback player types if needed.
-                            //We first check if we can get a source quality ad-free stream.
+                            //We first check if we can get a source quality ad-free stream, but only if the user has source set on the player.
+                            postMessage({
+                                key: 'GetVideoQuality'
+                            });
+
                             var responseText = await response.text();
                             var weaverText = null;
-                            if (FullQuality == true) {
+
+                            //Here we check the video player quality setting, if set to 720p or higher, we try for a source quality ad-free stream.
+                            var isPlayerHighQuality = false;
+                            if (CurrentVideoPlayerQuality) {
+                                if (CurrentVideoPlayerQuality.includes('1080') || CurrentVideoPlayerQuality.includes('720')) {
+                                    isPlayerHighQuality = true;
+                                }
+                            }
+
+                            if (isPlayerHighQuality == true) {
                                 weaverText = await processM3U8(url, responseText, realFetch, PlayerType1);
                                 if (weaverText.includes(AdSignifier)) {
                                     weaverText = await processM3U8(url, responseText, realFetch, PlayerType2);
@@ -269,8 +260,8 @@ function removeVideoAds() {
                     });
                 } else if (url.includes('/api/channel/hls/')) {
                     var channelName = (new URL(url)).pathname.match(/([^\/]+)(?=\.\w+$)/)[0];
-                    RootM3U8Params = (new URL(url)).search;
-                    CurrentChannelNameFromM3U8 = channelName;
+                    UsherParams = (new URL(url)).search;
+                    CurrentChannelName = channelName;
                     //To prevent pause/resume loop for mid-rolls.
                     var isPBYPRequest = url.includes('picture-by-picture');
                     if (isPBYPRequest) {
@@ -301,21 +292,28 @@ function removeVideoAds() {
                 tryNotifyTwitch(textStr);
             } catch (err) {}
 
-            var accessTokenResponse = await getAccessToken(CurrentChannelNameFromM3U8, playerType);
+            var accessTokenResponse = await getAccessToken(CurrentChannelName, playerType);
 
             if (accessTokenResponse.status === 200) {
 
                 var accessToken = await accessTokenResponse.json();
 
                 try {
-                    var urlInfo = new URL('https://usher.ttvnw.net/api/channel/hls/' + CurrentChannelNameFromM3U8 + '.m3u8' + RootM3U8Params);
+                    var urlInfo = new URL('https://usher.ttvnw.net/api/channel/hls/' + CurrentChannelName + '.m3u8' + UsherParams);
                     urlInfo.searchParams.set('sig', accessToken.data.streamPlaybackAccessToken.signature);
                     urlInfo.searchParams.set('token', accessToken.data.streamPlaybackAccessToken.value);
                     var encodingsM3u8Response = await realFetch(urlInfo.href);
                     if (encodingsM3u8Response.status === 200) {
 
                         var encodingsM3u8 = await encodingsM3u8Response.text();
-                        var streamM3u8Url = encodingsM3u8.match(/^https:.*\.m3u8$/m)[0];
+
+                        //We check if user has the player set to 720p, if so, use that encoding. If not, it will use 1080p or 480p, depending on the current player setting.
+                        var streamM3u8Url = null;
+                        if (CurrentVideoPlayerQuality && CurrentVideoPlayerQuality.includes('720') && PlayerType1 == playerType) {
+                            streamM3u8Url = encodingsM3u8.match(/^https:.*\.m3u8$/mg)[1];
+                        } else {
+                            streamM3u8Url = encodingsM3u8.match(/^https:.*\.m3u8$/mg)[0];
+                        }
 
                         var streamM3u8Response = await realFetch(streamM3u8Url);
                         if (streamM3u8Response.status == 200) {
@@ -479,64 +477,68 @@ function removeVideoAds() {
         });
     }
 
-    function reloadTwitchPlayer(isPausePlay) {
+    function doTwitchPlayerTask(isPausePlay, isCheckQuality) {
         //This will do an instant pause/play to return to original quality once the ad is finished.
-        //We also hide the controls while this happens to make the image more seamless.
+        //We also hide the controls while doing the pause/play to make the image more seamless.
+        //Or we use this function to get the current video player quality set by the user.
         try {
-            var videoController = document.querySelector('.video-player__overlay');
-            if (videoController) {
-                videoController.style.visibility = "hidden";
-            }
-
-            function findReactNode(root, constraint) {
-                if (root.stateNode && constraint(root.stateNode)) {
-                    return root.stateNode;
+            var videoController = null;
+            if (isPausePlay) {
+                videoController = document.querySelector('.video-player__overlay');
+                if (videoController) {
+                    videoController.style.visibility = "hidden";
                 }
-                let node = root.child;
-                while (node) {
-                    const result = findReactNode(node, constraint);
-                    if (result) {
-                        return result;
+            }
+            if (!videoPlayer) {
+                function findReactNode(root, constraint) {
+                    if (root.stateNode && constraint(root.stateNode)) {
+                        return root.stateNode;
                     }
-                    node = node.sibling;
+                    let node = root.child;
+                    while (node) {
+                        const result = findReactNode(node, constraint);
+                        if (result) {
+                            return result;
+                        }
+                        node = node.sibling;
+                    }
+                    return null;
                 }
-                return null;
+                var reactRootNode = null;
+                var rootNode = document.querySelector('#root');
+                if (rootNode && rootNode._reactRootContainer && rootNode._reactRootContainer._internalRoot && rootNode._reactRootContainer._internalRoot.current) {
+                    reactRootNode = rootNode._reactRootContainer._internalRoot.current;
+                }
+                if (!reactRootNode) {
+                    if (isPausePlay) {
+                        if (videoController) {
+                            videoController.style.visibility = "visible";
+                        }
+                    }
+                    return;
+                }
+                videoPlayer = findReactNode(reactRootNode, node => node.setPlayerActive && node.props && node.props.mediaPlayerInstance);
+                videoPlayer = videoPlayer && videoPlayer.props && videoPlayer.props.mediaPlayerInstance ? videoPlayer.props.mediaPlayerInstance : null;
             }
-            var reactRootNode = null;
-            var rootNode = document.querySelector('#root');
-            if (rootNode && rootNode._reactRootContainer && rootNode._reactRootContainer._internalRoot && rootNode._reactRootContainer._internalRoot.current) {
-                reactRootNode = rootNode._reactRootContainer._internalRoot.current;
-            }
-            if (!reactRootNode) {
-                if (videoController) {
-                    videoController.style.visibility = "visible";
+            if (!videoPlayer) {
+                if (isPausePlay) {
+                    if (videoController) {
+                        videoController.style.visibility = "visible";
+                    }
                 }
                 return;
             }
-            var player = findReactNode(reactRootNode, node => node.setPlayerActive && node.props && node.props.mediaPlayerInstance);
-            player = player && player.props && player.props.mediaPlayerInstance ? player.props.mediaPlayerInstance : null;
-            var playerState = findReactNode(reactRootNode, node => node.setSrc && node.setInitialPlaybackSettings);
-            if (!player) {
-                if (videoController) {
-                    videoController.style.visibility = "visible";
-                }
-                return;
-            }
-            if (!playerState) {
-                if (videoController) {
-                    videoController.style.visibility = "visible";
-                }
-                return;
-            }
-            if (player.paused) {
-                if (videoController) {
-                    videoController.style.visibility = "visible";
+            if (videoPlayer.paused) {
+                if (isPausePlay) {
+                    if (videoController) {
+                        videoController.style.visibility = "visible";
+                    }
                 }
                 return;
             }
             if (isPausePlay) {
-                player.pause();
-                player.play();
+                videoPlayer.pause();
+                videoPlayer.play();
                 setTimeout(function() {
                     if (videoController) {
                         videoController.style.visibility = "visible";
@@ -544,10 +546,23 @@ function removeVideoAds() {
                 }, 6500);
                 return;
             }
+            if (isCheckQuality) {
+                if (typeof videoPlayer.getQuality() == 'undefined') {
+                    return;
+                }
+                var playerQuality = JSON.stringify(videoPlayer.getQuality());
+                if (playerQuality) {
+                    return playerQuality;
+                } else {
+                    return;
+                }
+            }
         } catch (err) {
-            var videoController = document.querySelector('.video-player__overlay');
-            if (videoController) {
-                videoController.style.visibility = "visible";
+            if (isPausePlay) {
+                var videoController = document.querySelector('.video-player__overlay');
+                if (videoController) {
+                    videoController.style.visibility = "visible";
+                }
             }
         }
     }

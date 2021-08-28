@@ -1,14 +1,9 @@
 "use strict";
 
 var onOff = document.querySelector("input[name=checkbox1]");
-var fullQuality = document.querySelector("input[name=checkbox2]");
-var blockingMessage = document.querySelector("input[name=checkbox3]");
+var blockingMessage = document.querySelector("input[name=checkbox2]");
 
 onOff.addEventListener('change', function() {
-    saveOptions();
-});
-
-fullQuality.addEventListener('change', function() {
     saveOptions();
 });
 
@@ -28,15 +23,6 @@ function saveOptions() {
     }
     if (document.querySelector("input[name=checkbox2]").checked) {
         browser.storage.sync.set({
-            fullQualityTTV: "true"
-        });
-    } else {
-        browser.storage.sync.set({
-            fullQualityTTV: "false"
-        });
-    }
-    if (document.querySelector("input[name=checkbox3]").checked) {
-        browser.storage.sync.set({
             blockingMessageTTV: "true"
         });
     } else {
@@ -55,20 +41,12 @@ function restoreOptions() {
             document.querySelector("input[name=checkbox1]").checked = false;
         }
     });
-    var fullQuality = browser.storage.sync.get('fullQualityTTV');
-    fullQuality.then((res) => {
-        if (res.fullQualityTTV == "true") {
-            document.querySelector("input[name=checkbox2]").checked = true;
-        } else if (res.fullQualityTTV == "false") {
-            document.querySelector("input[name=checkbox2]").checked = false;
-        }
-    });
     var blockingMessage = browser.storage.sync.get('blockingMessageTTV');
     blockingMessage.then((res) => {
         if (res.blockingMessageTTV == "true") {
-            document.querySelector("input[name=checkbox3]").checked = true;
+            document.querySelector("input[name=checkbox2]").checked = true;
         } else if (res.blockingMessageTTV == "false") {
-            document.querySelector("input[name=checkbox3]").checked = false;
+            document.querySelector("input[name=checkbox2]").checked = false;
         }
     });
 }
