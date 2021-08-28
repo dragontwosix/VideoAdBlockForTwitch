@@ -96,8 +96,6 @@ function removeVideoAds() {
 
     var twitchMainWorker = null;
 
-    var videoPlayer = null;
-
     var adBlockDiv = null;
 
     const oldWorker = window.Worker;
@@ -491,37 +489,36 @@ function removeVideoAds() {
                     videoController.style.visibility = "hidden";
                 }
             }
-            if (!videoPlayer) {
-                function findReactNode(root, constraint) {
-                    if (root.stateNode && constraint(root.stateNode)) {
-                        return root.stateNode;
-                    }
-                    let node = root.child;
-                    while (node) {
-                        const result = findReactNode(node, constraint);
-                        if (result) {
-                            return result;
-                        }
-                        node = node.sibling;
-                    }
-                    return null;
+            var videoPlayer = null;
+            function findReactNode(root, constraint) {
+                if (root.stateNode && constraint(root.stateNode)) {
+                    return root.stateNode;
                 }
-                var reactRootNode = null;
-                var rootNode = document.querySelector('#root');
-                if (rootNode && rootNode._reactRootContainer && rootNode._reactRootContainer._internalRoot && rootNode._reactRootContainer._internalRoot.current) {
-                    reactRootNode = rootNode._reactRootContainer._internalRoot.current;
-                }
-                if (!reactRootNode) {
-                    if (isPausePlay) {
-                        if (videoController) {
-                            videoController.style.visibility = "visible";
-                        }
+                let node = root.child;
+                while (node) {
+                    const result = findReactNode(node, constraint);
+                    if (result) {
+                        return result;
                     }
-                    return;
+                    node = node.sibling;
                 }
-                videoPlayer = findReactNode(reactRootNode, node => node.setPlayerActive && node.props && node.props.mediaPlayerInstance);
-                videoPlayer = videoPlayer && videoPlayer.props && videoPlayer.props.mediaPlayerInstance ? videoPlayer.props.mediaPlayerInstance : null;
+                return null;
             }
+            var reactRootNode = null;
+            var rootNode = document.querySelector('#root');
+            if (rootNode && rootNode._reactRootContainer && rootNode._reactRootContainer._internalRoot && rootNode._reactRootContainer._internalRoot.current) {
+                reactRootNode = rootNode._reactRootContainer._internalRoot.current;
+            }
+            if (!reactRootNode) {
+                if (isPausePlay) {
+                    if (videoController) {
+                        videoController.style.visibility = "visible";
+                    }
+                }
+                return;
+            }
+            videoPlayer = findReactNode(reactRootNode, node => node.setPlayerActive && node.props && node.props.mediaPlayerInstance);
+            videoPlayer = videoPlayer && videoPlayer.props && videoPlayer.props.mediaPlayerInstance ? videoPlayer.props.mediaPlayerInstance : null;
             if (!videoPlayer) {
                 if (isPausePlay) {
                     if (videoController) {
