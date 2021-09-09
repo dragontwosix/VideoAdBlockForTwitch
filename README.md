@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.0.2:</br>
+Added install message to let users know, that they must disable TTV LOL and Purple Ad-Block to prevent conflicts.</br>
+
 5.0.1:</br>
 Fixed missing video player bug when pausing/resuming.</br>
 
