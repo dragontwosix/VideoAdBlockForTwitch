@@ -30,8 +30,8 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
-5.0.3:</br>
-Fixed stream delay bug, when opening background tabs and switching to them later.</br>
+5.0.4:</br>
+Reverted: Fixed stream delay bug, when opening background tabs and switching to them later.</br>
 
 5.0.2:</br>
 Added install message to let users know, that they must disable TTV LOL and Purple Ad-Block to prevent conflicts.</br>
