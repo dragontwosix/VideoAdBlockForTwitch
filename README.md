@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.0.3:</br>
+Fixed stream delay bug, when opening background tabs and switching to them later.</br>
+
 5.0.2:</br>
 Added install message to let users know, that they must disable TTV LOL and Purple Ad-Block to prevent conflicts.</br>
 
@@ -53,7 +56,4 @@ Added missing block URL for ad serving script in Firefox.</br>
 
 4.9.1:</br>
 Fixed rate-limit issue and cleaned up code.</br>
-
-4.9:</br>
-Cleaned up formatting and added a better UI for first install information. UI will only show on first install.</br>
 
