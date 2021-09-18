@@ -43,7 +43,14 @@ function removeVideoAds() {
             e.stopPropagation();
             e.stopImmediatePropagation();
         };
-        document.addEventListener('visibilitychange', block, true);
+        const process = e => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            //This corrects the background tab buffer bug when switching to the background tab for the first time after an extended period.
+            doTwitchPlayerTask(false, false, true);
+        };
+        document.addEventListener('visibilitychange', process, true);
         document.addEventListener('webkitvisibilitychange', block, true);
         document.addEventListener('mozvisibilitychange', block, true);
         document.addEventListener('hasFocus', block, true);
@@ -146,7 +153,7 @@ function removeVideoAds() {
             this.onmessage = function(e) {
                 if (e.data.key == 'GetVideoQuality') {
                     if (twitchMainWorker) {
-                        var currentQuality = doTwitchPlayerTask(false, true);
+                        var currentQuality = doTwitchPlayerTask(false, true, false);
                         if (twitchMainWorker) {
                             twitchMainWorker.postMessage({
                                 key: 'SetCurrentPlayerQuality',
@@ -166,7 +173,7 @@ function removeVideoAds() {
                     }
                     adBlockDiv.style.display = 'none';
                 } else if (e.data.key == 'PauseResumePlayer') {
-                    doTwitchPlayerTask(true, false);
+                    doTwitchPlayerTask(true, false, false);
                 } else if (e.data.key == 'ShowDonateBanner') {
                     if (adBlockDiv == null) {
                         adBlockDiv = getAdBlockDiv();
@@ -477,7 +484,7 @@ function removeVideoAds() {
         });
     }
 
-    function doTwitchPlayerTask(isPausePlay, isCheckQuality) {
+    function doTwitchPlayerTask(isPausePlay, isCheckQuality, isCorrectBuffer) {
         //This will do an instant pause/play to return to original quality once the ad is finished.
         //We also hide the controls while doing the pause/play to make the image more seamless.
         //We also use this function to get the current video player quality set by the user.
@@ -558,6 +565,28 @@ function removeVideoAds() {
                     return;
                 }
             }
+            //This only happens when switching tabs and is to correct the high latency caused when opening background tabs and going to them at a later time.
+            //We check that this is a live stream by the page URL, to prevent vod/clip pause/plays.
+            try {
+                var currentPageURL = document.URL;
+                var isLive = true;
+                if (currentPageURL.includes('videos/') || currentPageURL.includes('clip/')) {
+                    isLive = false;
+                }
+                if (isCorrectBuffer && isLive) {
+                    //A timer is needed due to the player not resuming without it.
+                    setTimeout(function() {
+                        //Is 5 seconds an acceptable max delay for low latency? Twitch will automatically re-adjust slowly downwards at this point to the correct lower latency within 2-5 minutes approx anyway.
+                        if (videoPlayer.isLiveLowLatency() && videoPlayer.getBufferDuration() > 5) {
+                            videoPlayer.pause();
+                            videoPlayer.play();
+                        } else if (videoPlayer.getBufferDuration() > 15) {
+                            videoPlayer.pause();
+                            videoPlayer.play();
+                        }
+                    }, 1000);
+                }
+            } catch (err) {}
         } catch (err) {
             if (isPausePlay) {
                 var videoController = document.querySelector('.video-player__overlay');
