@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.1.1:</br>
+Fixed video not pausing bug.</br>
+
 5.1.0:</br>
 Fixed stream delay bug, when opening background tabs and switching to them later.</br>
 
