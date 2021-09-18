@@ -536,7 +536,7 @@ function removeVideoAds() {
                 }
                 return;
             }
-            if (videoPlayer.paused) {
+            if (videoPlayer.isPaused()) {
                 if (isPausePlay) {
                     if (videoController) {
                         videoController.style.visibility = "visible";
