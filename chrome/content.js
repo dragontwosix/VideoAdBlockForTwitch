@@ -286,7 +286,8 @@ function removeVideoAds() {
             return textStr;
         }
 
-        if (!textStr.includes(".ts")) {
+        //Some live streams use mp4.
+        if (!textStr.includes(".ts") && !textStr.includes(".mp4")) {
             return textStr;
         }
 
