@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.1.2:</br>
+Fixed the non English streams letting ads through bug.</br>
+
 5.1.1:</br>
 Fixed video not pausing bug.</br>
 
