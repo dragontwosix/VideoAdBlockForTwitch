@@ -119,6 +119,7 @@ function removeVideoAds() {
                 return;
             }
             var newBlobStr = `
+                ${getNewUsher.toString()}
                 ${processM3U8.toString()}
                 ${hookWorkerFetch.toString()}
                 ${declareOptions.toString()}
@@ -274,10 +275,53 @@ function removeVideoAds() {
                     if (isPBYPRequest) {
                         url = '';
                     }
+                    return new Promise(function(resolve, reject) {
+                        var processAfter = async function(response) {
+                            encodingsM3u8 = await getNewUsher(realFetch);
+                            resolve(new Response(encodingsM3u8));
+                        };
+                        var send = function() {
+                            return realFetch(url, options).then(function(response) {
+                                processAfter(response);
+                            })['catch'](function(err) {
+                                reject(err);
+                            });
+                        };
+                        send();
+                    });
                 }
             }
             return realFetch.apply(this, arguments);
         };
+    }
+
+    //Added as fallback for when UBlock method fails.
+    async function getNewUsher(realFetch) {
+        var accessTokenResponse = await getAccessToken(CurrentChannelName, PlayerType1);
+        var encodingsM3u8 = '';
+
+        if (accessTokenResponse.status === 200) {
+
+            var accessToken = await accessTokenResponse.json();
+
+            try {
+                var urlInfo = new URL('https://usher.ttvnw.net/api/channel/hls/' + CurrentChannelName + '.m3u8' + UsherParams);
+                urlInfo.searchParams.set('sig', accessToken.data.streamPlaybackAccessToken.signature);
+                urlInfo.searchParams.set('token', accessToken.data.streamPlaybackAccessToken.value);
+                var encodingsM3u8Response = await realFetch(urlInfo.href);
+                if (encodingsM3u8Response.status === 200) {
+                    encodingsM3u8 = await encodingsM3u8Response.text();
+                    return encodingsM3u8;
+                } else {
+                    return '';
+                }
+            } catch (err) {
+                console.error('testing error' + err);
+            }
+            return '';
+        } else {
+            return '';
+        }
     }
 
     async function processM3U8(url, textStr, realFetch, playerType) {
@@ -598,6 +642,9 @@ function removeVideoAds() {
         }
     }
 
+    var localDeviceID = null;
+    localDeviceID = window.localStorage.getItem('local_copy_unique_id');
+
     function hookFetch() {
         var realFetch = window.fetch;
         window.fetch = function(url, init, ...args) {
@@ -608,10 +655,20 @@ function removeVideoAds() {
                     if (typeof deviceId !== 'string') {
                         deviceId = init.headers['Device-ID'];
                     }
-                    if (typeof deviceId === 'string') {
+                    //Added to prevent eventual UBlock conflicts.
+                    if (typeof deviceId === 'string' && !deviceId.includes('twitch-web-wall-mason')) {
                         GQLDeviceID = deviceId;
+                    } else if (localDeviceID) {
+                        GQLDeviceID = localDeviceID.replace('"', '');
+                        GQLDeviceID = GQLDeviceID.replace('"', '');
                     }
                     if (GQLDeviceID && twitchMainWorker) {
+                        if (typeof init.headers['X-Device-Id'] === 'string') {
+                            init.headers['X-Device-Id'] = GQLDeviceID;
+                        }
+                        if (typeof init.headers['Device-ID'] === 'string') {
+                            init.headers['Device-ID'] = GQLDeviceID;
+                        }
                         twitchMainWorker.postMessage({
                             key: 'UpdateDeviceId',
                             value: GQLDeviceID
@@ -628,22 +685,23 @@ function removeVideoAds() {
                             value: ClientVersion
                         });
                     }
+                    //Removed due to multiple client ID's.
                     //Client ID is used in GQL requests.
-                    var clientId = init.headers['Client-ID'];
-                    if (clientId && typeof clientId == 'string') {
-                        ClientID = clientId;
-                    } else {
-                        clientId = init.headers['Client-Id'];
-                        if (clientId && typeof clientId == 'string') {
-                            ClientID = clientId;
-                        }
-                    }
-                    if (ClientID && twitchMainWorker) {
-                        twitchMainWorker.postMessage({
-                            key: 'UpdateClientId',
-                            value: ClientID
-                        });
-                    }
+                    //var clientId = init.headers['Client-ID'];
+                    //if (clientId && typeof clientId == 'string') {
+                    //    ClientID = clientId;
+                    //} else {
+                    //    clientId = init.headers['Client-Id'];
+                    //    if (clientId && typeof clientId == 'string') {
+                    //        ClientID = clientId;
+                    //    }
+                    //}
+                    //if (ClientID && twitchMainWorker) {
+                    //    twitchMainWorker.postMessage({
+                    //        key: 'UpdateClientId',
+                    //        value: ClientID
+                    //    });
+                    //}
                     //To prevent pause/resume loop for mid-rolls.
                     if (url.includes('gql') && init && typeof init.body === 'string' && init.body.includes('PlaybackAccessToken') && init.body.includes('picture-by-picture')) {
                         init.body = '';
