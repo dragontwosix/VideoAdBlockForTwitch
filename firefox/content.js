@@ -275,20 +275,29 @@ function removeVideoAds() {
                     if (isPBYPRequest) {
                         url = '';
                     }
-                    return new Promise(function(resolve, reject) {
-                        var processAfter = async function(response) {
-                            encodingsM3u8 = await getNewUsher(realFetch);
-                            resolve(new Response(encodingsM3u8));
-                        };
-                        var send = function() {
-                            return realFetch(url, options).then(function(response) {
-                                processAfter(response);
-                            })['catch'](function(err) {
-                                reject(err);
-                            });
-                        };
-                        send();
-                    });
+                    if (url.includes('hide_ads%22%3Afalse') && url.includes('subscriber%22%3Afalse') && url.includes('show_ads%22%3Atrue')) {
+                        return new Promise(function(resolve, reject) {
+                            var processAfter = async function(response) {
+                                encodingsM3u8 = await getNewUsher(realFetch, response);
+                                if (encodingsM3u8.length > 1) {
+                                    resolve(new Response(encodingsM3u8));
+                                } else {
+                                    postMessage({
+                                        key: 'HideAdBlockBanner'
+                                    });
+                                    resolve(encodingsM3u8);
+                                }
+                            };
+                            var send = function() {
+                                return realFetch(url, options).then(function(response) {
+                                    processAfter(response);
+                                })['catch'](function(err) {
+                                    reject(err);
+                                });
+                            };
+                            send();
+                        });
+                    }
                 }
             }
             return realFetch.apply(this, arguments);
@@ -296,7 +305,7 @@ function removeVideoAds() {
     }
 
     //Added as fallback for when UBlock method fails.
-    async function getNewUsher(realFetch) {
+    async function getNewUsher(realFetch, originalResponse) {
         var accessTokenResponse = await getAccessToken(CurrentChannelName, PlayerType1);
         var encodingsM3u8 = '';
 
@@ -313,14 +322,12 @@ function removeVideoAds() {
                     encodingsM3u8 = await encodingsM3u8Response.text();
                     return encodingsM3u8;
                 } else {
-                    return '';
+                    return originalResponse;
                 }
-            } catch (err) {
-                console.error('testing error' + err);
-            }
-            return '';
+            } catch (err) {}
+            return originalResponse;
         } else {
-            return '';
+            return originalResponse;
         }
     }
 
@@ -685,23 +692,24 @@ function removeVideoAds() {
                             value: ClientVersion
                         });
                     }
-                    //Removed due to multiple client ID's.
                     //Client ID is used in GQL requests.
-                    //var clientId = init.headers['Client-ID'];
-                    //if (clientId && typeof clientId == 'string') {
-                    //    ClientID = clientId;
-                    //} else {
-                    //    clientId = init.headers['Client-Id'];
-                    //    if (clientId && typeof clientId == 'string') {
-                    //        ClientID = clientId;
-                    //    }
-                    //}
-                    //if (ClientID && twitchMainWorker) {
-                    //    twitchMainWorker.postMessage({
-                    //        key: 'UpdateClientId',
-                    //        value: ClientID
-                    //    });
-                    //}
+                    if (url.includes('gql') && init && typeof init.body === 'string' && init.body.includes('PlaybackAccessToken')) {
+                        var clientId = init.headers['Client-ID'];
+                        if (clientId && typeof clientId == 'string') {
+                            ClientID = clientId;
+                        } else {
+                            clientId = init.headers['Client-Id'];
+                            if (clientId && typeof clientId == 'string') {
+                                ClientID = clientId;
+                            }
+                        }
+                        if (ClientID && twitchMainWorker) {
+                            twitchMainWorker.postMessage({
+                                key: 'UpdateClientId',
+                                value: ClientID
+                            });
+                        }
+                    }
                     //To prevent pause/resume loop for mid-rolls.
                     if (url.includes('gql') && init && typeof init.body === 'string' && init.body.includes('PlaybackAccessToken') && init.body.includes('picture-by-picture')) {
                         init.body = '';
