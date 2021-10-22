@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.2.1:</br>
+Fixed subbed channels bug. Fixed error 1000 bug.</br>
+
 5.2.0:</br>
 Added fallbacks for eventual UBlock bypass breaking.</br>
 
@@ -59,10 +62,4 @@ Made client version header dynamic, rather than static.</br>
 
 4.9.3:</br>
 Added client version header.</br>
-
-4.9.2 (Firefox only):</br>
-Added missing block URL for ad serving script in Firefox.</br>
-
-4.9.1:</br>
-Fixed rate-limit issue and cleaned up code.</br>
 
