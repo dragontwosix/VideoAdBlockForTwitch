@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.2.2:</br>
+Added client session, in case it's used in the future. Disabled ad-blocking for squad streams as it causes bugs.</br>
+
 5.2.1:</br>
 Fixed subbed channels bug. Fixed error 1000 bug.</br>
 
@@ -53,13 +56,4 @@ Fixed missing video player bug when pausing/resuming.</br>
 
 5.0.0:</br>
 The extension will now automatically adjust the ad-free stream quality, without users needing to use the extension settings. This will help new users with buffering issues.</br>
-
-4.9.5:</br>
-Made client ID header dynamic, rather than static. Minimized ad identifier.</br>
-
-4.9.4:</br>
-Made client version header dynamic, rather than static.</br>
-
-4.9.3:</br>
-Added client version header.</br>
 
