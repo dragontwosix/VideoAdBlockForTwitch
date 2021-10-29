@@ -87,6 +87,7 @@ function removeVideoAds() {
         scope.AdSignifier = 'stitched';
         scope.ClientID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
         scope.ClientVersion = 'null';
+        scope.ClientSession = 'null';
         scope.PlayerType1 = 'site'; //Source
         scope.PlayerType2 = 'thunderdome'; //480p
         scope.PlayerType3 = 'pop_tart'; //480p
@@ -97,6 +98,7 @@ function removeVideoAds() {
         scope.GQLDeviceID = null;
         scope.HideBlockingMessage = false;
         scope.CurrentVideoPlayerQuality = null;
+        scope.IsSquadStream = false;
     }
 
     declareOptions(window);
@@ -132,8 +134,12 @@ function removeVideoAds() {
                 self.addEventListener('message', function(e) {
                     if (e.data.key == 'SetCurrentPlayerQuality') {
                         CurrentVideoPlayerQuality = e.data.value;
+                    } else if (e.data.key == 'UpdateIsSquadStream') {
+                        IsSquadStream = e.data.value;
                     } else if (e.data.key == 'UpdateClientVersion') {
                         ClientVersion = e.data.value;
+                    } else if (e.data.key == 'UpdateClientSession') {
+                        ClientSession = e.data.value;
                     } else if (e.data.key == 'UpdateClientId') {
                         ClientID = e.data.value;
                     } else if (e.data.key == 'UpdateDeviceId') {
@@ -278,7 +284,7 @@ function removeVideoAds() {
                     if (url.includes('hide_ads%22%3Afalse') && url.includes('subscriber%22%3Afalse') && url.includes('show_ads%22%3Atrue')) {
                         return new Promise(function(resolve, reject) {
                             var processAfter = async function(response) {
-                                encodingsM3u8 = await getNewUsher(realFetch, response);
+                                encodingsM3u8 = await getNewUsher(realFetch, response, channelName);
                                 if (encodingsM3u8.length > 1) {
                                     resolve(new Response(encodingsM3u8));
                                 } else {
@@ -305,8 +311,8 @@ function removeVideoAds() {
     }
 
     //Added as fallback for when UBlock method fails.
-    async function getNewUsher(realFetch, originalResponse) {
-        var accessTokenResponse = await getAccessToken(CurrentChannelName, PlayerType1);
+    async function getNewUsher(realFetch, originalResponse, channelName) {
+        var accessTokenResponse = await getAccessToken(channelName, PlayerType1);
         var encodingsM3u8 = '';
 
         if (accessTokenResponse.status === 200) {
@@ -314,7 +320,7 @@ function removeVideoAds() {
             var accessToken = await accessTokenResponse.json();
 
             try {
-                var urlInfo = new URL('https://usher.ttvnw.net/api/channel/hls/' + CurrentChannelName + '.m3u8' + UsherParams);
+                var urlInfo = new URL('https://usher.ttvnw.net/api/channel/hls/' + channelName + '.m3u8' + UsherParams);
                 urlInfo.searchParams.set('sig', accessToken.data.streamPlaybackAccessToken.signature);
                 urlInfo.searchParams.set('token', accessToken.data.streamPlaybackAccessToken.value);
                 var encodingsM3u8Response = await realFetch(urlInfo.href);
@@ -333,6 +339,12 @@ function removeVideoAds() {
 
     async function processM3U8(url, textStr, realFetch, playerType) {
         //Checks the m3u8 for ads and if it finds one, instead returns an ad-free stream.
+
+        //Ad blocking for squad streams is disabled due to the way multiple weaver urls are used. No workaround so far.
+        if (IsSquadStream == true) {
+            return textStr;
+        }
+
         if (!textStr) {
             return textStr;
         }
@@ -531,7 +543,8 @@ function removeVideoAds() {
                 'Client-ID': ClientID,
                 'Device-ID': GQLDeviceID,
                 'X-Device-Id': GQLDeviceID,
-                'Client-Version': ClientVersion
+                'Client-Version': ClientVersion,
+                'Client-Session-Id': ClientSession
             }
         });
     }
@@ -656,6 +669,22 @@ function removeVideoAds() {
         var realFetch = window.fetch;
         window.fetch = function(url, init, ...args) {
             if (typeof url === 'string') {
+                //Check if squad stream.
+                if (window.location.pathname.includes('/squad')) {
+                    if (twitchMainWorker) {
+                        twitchMainWorker.postMessage({
+                            key: 'UpdateIsSquadStream',
+                            value: true
+                        });
+                    }
+                } else {
+                    if (twitchMainWorker) {
+                        twitchMainWorker.postMessage({
+                            key: 'UpdateIsSquadStream',
+                            value: false
+                        });
+                    }
+                }
                 if (url.includes('/access_token') || url.includes('gql')) {
                     //Device ID is used when notifying Twitch of ads.
                     var deviceId = init.headers['X-Device-Id'];
@@ -690,6 +719,17 @@ function removeVideoAds() {
                         twitchMainWorker.postMessage({
                             key: 'UpdateClientVersion',
                             value: ClientVersion
+                        });
+                    }
+                    //Client session is used in GQL requests.
+                    var clientSession = init.headers['Client-Session-Id'];
+                    if (clientSession && typeof clientSession == 'string') {
+                        ClientSession = clientSession;
+                    }
+                    if (ClientSession && twitchMainWorker) {
+                        twitchMainWorker.postMessage({
+                            key: 'UpdateClientSession',
+                            value: ClientSession
                         });
                     }
                     //Client ID is used in GQL requests.
