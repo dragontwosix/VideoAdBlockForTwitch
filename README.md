@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.2.3:</br>
+Added extra check to prevent ads for some subbed users.</br>
+
 5.2.2:</br>
 Added client session, in case it's used in the future. Disabled ad-blocking for squad streams as it causes bugs.</br>
 
