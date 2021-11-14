@@ -281,7 +281,15 @@ function removeVideoAds() {
                     if (isPBYPRequest) {
                         url = '';
                     }
-                    if (url.includes('hide_ads%22%3Afalse') && url.includes('subscriber%22%3Afalse') && url.includes('show_ads%22%3Atrue')) {
+                    //Make new Usher request if needed to create fallback if UBlock bypass method fails.
+                    var useNewUsher = false;
+                    if (url.includes('subscriber%22%3Afalse') && url.includes('hide_ads%22%3Afalse') && url.includes('show_ads%22%3Atrue')) {
+                        useNewUsher = true;
+                    }
+                    if (url.includes('subscriber%22%3Atrue') && url.includes('hide_ads%22%3Afalse') && url.includes('show_ads%22%3Atrue')) {
+                        useNewUsher = true;
+                    }
+                    if (useNewUsher == true) {
                         return new Promise(function(resolve, reject) {
                             var processAfter = async function(response) {
                                 encodingsM3u8 = await getNewUsher(realFetch, response, channelName);
