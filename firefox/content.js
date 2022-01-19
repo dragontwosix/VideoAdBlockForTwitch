@@ -242,10 +242,11 @@ function removeVideoAds() {
                             }
 
                             if (isPlayerHighQuality == true) {
-                                weaverText = await processM3U8(url, responseText, realFetch, PlayerType1);
-                                if (weaverText.includes(AdSignifier)) {
+                                //Temp fix for stuck video player, need to instead reload player when it happens. Cause is switching from 480p to 1080p.
+                                //weaverText = await processM3U8(url, responseText, realFetch, PlayerType1);
+                                //if (weaverText.includes(AdSignifier)) {
                                     weaverText = await processM3U8(url, responseText, realFetch, PlayerType2);
-                                }
+                                //}
                                 if (weaverText.includes(AdSignifier)) {
                                     weaverText = await processM3U8(url, responseText, realFetch, PlayerType3);
                                 }
