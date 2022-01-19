@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.2.5:</br>
+Temp fix for stuck video.</br>
+
 5.2.3:</br>
 Added extra check to prevent ads for some subbed users.</br>
 
