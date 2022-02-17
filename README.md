@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.2.6:</br>
+Remove temp fix for stuck video on Chrome only (Not needed).</br>
+
 5.2.5:</br>
 Temp fix for stuck video.</br>
 
