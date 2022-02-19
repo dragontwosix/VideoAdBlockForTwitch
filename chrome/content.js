@@ -185,7 +185,7 @@ function removeVideoAds() {
                     if (adBlockDiv == null) {
                         adBlockDiv = getAdBlockDiv();
                     }
-                    adBlockDiv.P.textContent = 'Help support us...';
+                    adBlockDiv.P.textContent = 'Help support me...';
                     adBlockDiv.style.display = 'block';
                 }
             };
