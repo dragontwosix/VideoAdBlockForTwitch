@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.3.0:</br>
+Potential fix for stuck videos. Added to all versions.</br>
+
 5.2.7:</br>
 Potential fix for Firefox stuck video. Made version numbers the same for all versions.</br>
 
