@@ -48,7 +48,7 @@ function removeVideoAds() {
             e.stopPropagation();
             e.stopImmediatePropagation();
             //This corrects the background tab buffer bug when switching to the background tab for the first time after an extended period.
-            doTwitchPlayerTask(false, false, true);
+            doTwitchPlayerTask(false, false, true, false);
         };
         document.addEventListener('visibilitychange', process, true);
         document.addEventListener('webkitvisibilitychange', block, true);
@@ -97,7 +97,9 @@ function removeVideoAds() {
         scope.WasShowingAd = false;
         scope.GQLDeviceID = null;
         scope.HideBlockingMessage = false;
-        scope.CurrentVideoPlayerQuality = null;
+        scope.OriginalVideoPlayerQuality = null;
+        scope.CurrentVideoPlayerQuality = '';
+        scope.IsPlayerAutoQuality = null;
         scope.IsSquadStream = false;
     }
 
@@ -134,6 +136,11 @@ function removeVideoAds() {
                 self.addEventListener('message', function(e) {
                     if (e.data.key == 'SetCurrentPlayerQuality') {
                         CurrentVideoPlayerQuality = e.data.value;
+                        if (OriginalVideoPlayerQuality == null) {
+                        OriginalVideoPlayerQuality = e.data.value;
+                        }
+                    } else if (e.data.key == 'IsAutoQuality') {
+                        IsPlayerAutoQuality = e.data.value;
                     } else if (e.data.key == 'UpdateIsSquadStream') {
                         IsSquadStream = e.data.value;
                     } else if (e.data.key == 'UpdateClientVersion') {
@@ -160,11 +167,21 @@ function removeVideoAds() {
             this.onmessage = function(e) {
                 if (e.data.key == 'GetVideoQuality') {
                     if (twitchMainWorker) {
-                        var currentQuality = doTwitchPlayerTask(false, true, false);
+                        var currentQuality = doTwitchPlayerTask(false, true, false, false);
                         if (twitchMainWorker) {
                             twitchMainWorker.postMessage({
                                 key: 'SetCurrentPlayerQuality',
                                 value: currentQuality
+                            });
+                        }
+                    }
+                } else if (e.data.key == 'CheckIfAutoQuality') {
+                    if (twitchMainWorker) {
+                        var autoQuality = doTwitchPlayerTask(false, false, false, true);
+                        if (twitchMainWorker) {
+                            twitchMainWorker.postMessage({
+                                key: 'IsAutoQuality',
+                                value: autoQuality
                             });
                         }
                     }
@@ -180,13 +197,52 @@ function removeVideoAds() {
                     }
                     adBlockDiv.style.display = 'none';
                 } else if (e.data.key == 'PauseResumePlayer') {
-                    doTwitchPlayerTask(true, false, false);
+                    doTwitchPlayerTask(true, false, false, false);
                 } else if (e.data.key == 'ShowDonateBanner') {
                     if (adBlockDiv == null) {
                         adBlockDiv = getAdBlockDiv();
                     }
                     adBlockDiv.P.textContent = 'Help support me...';
                     adBlockDiv.style.display = 'block';
+                } else if (e.data.key == 'ForceChangeQuality') {
+                    //This is used to fix the Firefox bug where the video would freeze when switching from ad-free to normal.
+                    try {
+                        var currentQuality = doTwitchPlayerTask(false, true, false, false);
+                        if (!currentQuality.includes('480') || e.data.value != null) {
+                            var settingsMenu = document.querySelector('div[data-a-target="player-settings-menu"]');
+                            if (settingsMenu == null) {
+                                var settingsCog = document.querySelector('button[data-a-target="player-settings-button"]');
+                                if (settingsCog) {
+                                    settingsCog.click();
+                                    var qualityMenu = document.querySelector('button[data-a-target="player-settings-menu-item-quality"]');
+                                    if (qualityMenu) {
+                                        qualityMenu.click();
+                                    }
+                                    var lowQuality = document.querySelectorAll('input[data-a-target="tw-radio"');
+                                    if (lowQuality) {
+                                        var qualityToSelect = lowQuality.length - 3;
+                                        if (e.data.value != null) {
+                                            if (e.data.value.includes('720')) {
+                                                qualityToSelect = 2;
+                                            }
+                                            if (e.data.value.includes('900')) {
+                                                qualityToSelect = 2;
+                                            }
+                                            if (e.data.value.includes('source')) {
+                                                qualityToSelect = 1;
+                                            }
+                                            if (e.data.value.includes('auto')) {
+                                                qualityToSelect = 0;
+                                            }
+                                        }
+                                        lowQuality[qualityToSelect].click();
+                                    }
+                                    settingsCog.click();
+                                    settingsCog.click();
+                                }
+                            }
+                        }
+                    } catch (err) {}
                 }
             };
 
@@ -229,6 +285,11 @@ function removeVideoAds() {
                             postMessage({
                                 key: 'GetVideoQuality'
                             });
+                            if (IsPlayerAutoQuality == null) {
+                                postMessage({
+                                    key: 'CheckIfAutoQuality'
+                                });
+                            }
 
                             var responseText = await response.text();
                             var weaverText = null;
@@ -242,10 +303,12 @@ function removeVideoAds() {
                             }
 
                             if (isPlayerHighQuality == true) {
-                                weaverText = await processM3U8(url, responseText, realFetch, PlayerType1);
-                                if (weaverText.includes(AdSignifier)) {
-                                    weaverText = await processM3U8(url, responseText, realFetch, PlayerType2);
-                                }
+                                //Due to Firefox causing video to freeze on quality changes we force the ad-free part to be 480p for now.
+                                weaverText = await processM3U8(url, responseText, realFetch, PlayerType2);
+                                //weaverText = await processM3U8(url, responseText, realFetch, PlayerType1);
+                                //if (weaverText.includes(AdSignifier)) {
+                                //    weaverText = await processM3U8(url, responseText, realFetch, PlayerType2);
+                                //}
                                 if (weaverText.includes(AdSignifier)) {
                                     weaverText = await processM3U8(url, responseText, realFetch, PlayerType3);
                                 }
@@ -413,6 +476,11 @@ function removeVideoAds() {
                                     key: 'HideAdBlockBanner'
                                 });
                             }
+
+                            postMessage({
+                                key: 'ForceChangeQuality'
+                            });
+
                             return m3u8Text;
                         } else {
                             return textStr;
@@ -428,6 +496,20 @@ function removeVideoAds() {
         } else {
             if (WasShowingAd) {
                 WasShowingAd = false;
+                if (IsPlayerAutoQuality && IsPlayerAutoQuality == true) {
+                    //Here we put the player back to auto quality.
+                    postMessage({
+                        key: 'ForceChangeQuality',
+                        value: 'auto'
+                    });
+                } else {
+                    //Here we put player back to original quality.
+                    postMessage({
+                        key: 'ForceChangeQuality',
+                        value: OriginalVideoPlayerQuality
+                    });
+                }
+                IsPlayerAutoQuality = null;
                 postMessage({
                     key: 'PauseResumePlayer'
                 });
@@ -557,7 +639,7 @@ function removeVideoAds() {
         });
     }
 
-    function doTwitchPlayerTask(isPausePlay, isCheckQuality, isCorrectBuffer) {
+    function doTwitchPlayerTask(isPausePlay, isCheckQuality, isCorrectBuffer, isAutoQuality) {
         //This will do an instant pause/play to return to original quality once the ad is finished.
         //We also hide the controls while doing the pause/play to make the image more seamless.
         //We also use this function to get the current video player quality set by the user.
@@ -636,6 +718,17 @@ function removeVideoAds() {
                     return playerQuality;
                 } else {
                     return;
+                }
+            }
+            if (isAutoQuality) {
+                if (typeof videoPlayer.isAutoQualityMode() == 'undefined') {
+                    return false;
+                }
+                var autoQuality = videoPlayer.isAutoQualityMode();
+                if (autoQuality) {
+                    return autoQuality;
+                } else {
+                    return false;
                 }
             }
             //This only happens when switching tabs and is to correct the high latency caused when opening background tabs and going to them at a later time.
