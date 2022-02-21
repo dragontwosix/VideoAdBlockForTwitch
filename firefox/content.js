@@ -48,7 +48,7 @@ function removeVideoAds() {
             e.stopPropagation();
             e.stopImmediatePropagation();
             //This corrects the background tab buffer bug when switching to the background tab for the first time after an extended period.
-            doTwitchPlayerTask(false, false, true, false);
+            doTwitchPlayerTask(false, false, true, false, false);
         };
         document.addEventListener('visibilitychange', process, true);
         document.addEventListener('webkitvisibilitychange', block, true);
@@ -97,9 +97,6 @@ function removeVideoAds() {
         scope.WasShowingAd = false;
         scope.GQLDeviceID = null;
         scope.HideBlockingMessage = false;
-        scope.OriginalVideoPlayerQuality = null;
-        scope.CurrentVideoPlayerQuality = '';
-        scope.IsPlayerAutoQuality = null;
         scope.IsSquadStream = false;
     }
 
@@ -108,6 +105,10 @@ function removeVideoAds() {
     var twitchMainWorker = null;
 
     var adBlockDiv = null;
+
+    var OriginalVideoPlayerQuality = null;
+
+    var IsPlayerAutoQuality = null;
 
     const oldWorker = window.Worker;
 
@@ -134,14 +135,7 @@ function removeVideoAds() {
                 ${parseAttributes.toString()}
                 declareOptions(self);
                 self.addEventListener('message', function(e) {
-                    if (e.data.key == 'SetCurrentPlayerQuality') {
-                        CurrentVideoPlayerQuality = e.data.value;
-                        if (OriginalVideoPlayerQuality == null) {
-                        OriginalVideoPlayerQuality = e.data.value;
-                        }
-                    } else if (e.data.key == 'IsAutoQuality') {
-                        IsPlayerAutoQuality = e.data.value;
-                    } else if (e.data.key == 'UpdateIsSquadStream') {
+                    if (e.data.key == 'UpdateIsSquadStream') {
                         IsSquadStream = e.data.value;
                     } else if (e.data.key == 'UpdateClientVersion') {
                         ClientVersion = e.data.value;
@@ -165,27 +159,7 @@ function removeVideoAds() {
             super(URL.createObjectURL(new Blob([newBlobStr])));
             twitchMainWorker = this;
             this.onmessage = function(e) {
-                if (e.data.key == 'GetVideoQuality') {
-                    if (twitchMainWorker) {
-                        var currentQuality = doTwitchPlayerTask(false, true, false, false);
-                        if (twitchMainWorker) {
-                            twitchMainWorker.postMessage({
-                                key: 'SetCurrentPlayerQuality',
-                                value: currentQuality
-                            });
-                        }
-                    }
-                } else if (e.data.key == 'CheckIfAutoQuality') {
-                    if (twitchMainWorker) {
-                        var autoQuality = doTwitchPlayerTask(false, false, false, true);
-                        if (twitchMainWorker) {
-                            twitchMainWorker.postMessage({
-                                key: 'IsAutoQuality',
-                                value: autoQuality
-                            });
-                        }
-                    }
-                } else if (e.data.key == 'ShowAdBlockBanner') {
+                if (e.data.key == 'ShowAdBlockBanner') {
                     if (adBlockDiv == null) {
                         adBlockDiv = getAdBlockDiv();
                     }
@@ -197,7 +171,7 @@ function removeVideoAds() {
                     }
                     adBlockDiv.style.display = 'none';
                 } else if (e.data.key == 'PauseResumePlayer') {
-                    doTwitchPlayerTask(true, false, false, false);
+                    doTwitchPlayerTask(true, false, false, false, false);
                 } else if (e.data.key == 'ShowDonateBanner') {
                     if (adBlockDiv == null) {
                         adBlockDiv = getAdBlockDiv();
@@ -205,44 +179,92 @@ function removeVideoAds() {
                     adBlockDiv.P.textContent = 'Help support me...';
                     adBlockDiv.style.display = 'block';
                 } else if (e.data.key == 'ForceChangeQuality') {
-                    //This is used to fix the Firefox bug where the video would freeze when switching from ad-free to normal.
+                    //This is used to fix the bug where the video would freeze.
                     try {
-                        var currentQuality = doTwitchPlayerTask(false, true, false, false);
+                        var autoQuality = doTwitchPlayerTask(false, false, false, true, false);
+                        var currentQuality = doTwitchPlayerTask(false, true, false, false, false);
+                        if (IsPlayerAutoQuality == null) {
+                            IsPlayerAutoQuality = autoQuality;
+                        }
+                        if (OriginalVideoPlayerQuality == null) {
+                            OriginalVideoPlayerQuality = currentQuality;
+                        }
                         if (!currentQuality.includes('480') || e.data.value != null) {
-                            var settingsMenu = document.querySelector('div[data-a-target="player-settings-menu"]');
-                            if (settingsMenu == null) {
-                                var settingsCog = document.querySelector('button[data-a-target="player-settings-button"]');
-                                if (settingsCog) {
-                                    settingsCog.click();
-                                    var qualityMenu = document.querySelector('button[data-a-target="player-settings-menu-item-quality"]');
-                                    if (qualityMenu) {
-                                        qualityMenu.click();
-                                    }
-                                    var lowQuality = document.querySelectorAll('input[data-a-target="tw-radio"');
-                                    if (lowQuality) {
-                                        var qualityToSelect = lowQuality.length - 3;
-                                        if (e.data.value != null) {
-                                            if (e.data.value.includes('720')) {
-                                                qualityToSelect = 2;
+                            if (!OriginalVideoPlayerQuality.includes('480')) {
+                                var settingsMenu = document.querySelector('div[data-a-target="player-settings-menu"]');
+                                if (settingsMenu == null) {
+                                    var settingsCog = document.querySelector('button[data-a-target="player-settings-button"]');
+                                    if (settingsCog) {
+                                        settingsCog.click();
+                                        var qualityMenu = document.querySelector('button[data-a-target="player-settings-menu-item-quality"]');
+                                        if (qualityMenu) {
+                                            qualityMenu.click();
+                                        }
+                                        var lowQuality = document.querySelectorAll('input[data-a-target="tw-radio"');
+                                        if (lowQuality) {
+                                            var qualityToSelect = lowQuality.length - 3;
+                                            if (e.data.value != null) {
+                                                if (e.data.value.includes('original')) {
+                                                    e.data.value = OriginalVideoPlayerQuality;
+                                                    if (IsPlayerAutoQuality) {
+                                                        e.data.value = 'auto';
+                                                    }
+                                                }
+                                                if (e.data.value.includes('160p')) {
+                                                    qualityToSelect = 5;
+                                                }
+                                                if (e.data.value.includes('360p')) {
+                                                    qualityToSelect = 4;
+                                                }
+                                                if (e.data.value.includes('480p')) {
+                                                    qualityToSelect = 3;
+                                                }
+                                                if (e.data.value.includes('720p')) {
+                                                    qualityToSelect = 2;
+                                                }
+                                                if (e.data.value.includes('822p')) {
+                                                    qualityToSelect = 2;
+                                                }
+                                                if (e.data.value.includes('864p')) {
+                                                    qualityToSelect = 2;
+                                                }
+                                                if (e.data.value.includes('900p')) {
+                                                    qualityToSelect = 2;
+                                                }
+                                                if (e.data.value.includes('936p')) {
+                                                    qualityToSelect = 2;
+                                                }
+                                                if (e.data.value.includes('960p')) {
+                                                    qualityToSelect = 2;
+                                                }
+                                                if (e.data.value.includes('1080p')) {
+                                                    qualityToSelect = 2;
+                                                }
+                                                if (e.data.value.includes('source')) {
+                                                    qualityToSelect = 1;
+                                                }
+                                                if (e.data.value.includes('auto')) {
+                                                    qualityToSelect = 0;
+                                                }
                                             }
-                                            if (e.data.value.includes('900')) {
-                                                qualityToSelect = 2;
-                                            }
-                                            if (e.data.value.includes('source')) {
-                                                qualityToSelect = 1;
-                                            }
-                                            if (e.data.value.includes('auto')) {
-                                                qualityToSelect = 0;
+                                            lowQuality[qualityToSelect].click();
+
+                                            if (e.data.value != null) {
+                                                OriginalVideoPlayerQuality = null;
+                                                IsPlayerAutoQuality = null;
+                                                doTwitchPlayerTask(false, false, false, true, true);
                                             }
                                         }
-                                        lowQuality[qualityToSelect].click();
+                                        settingsCog.click();
+                                        settingsCog.click();
                                     }
-                                    settingsCog.click();
-                                    settingsCog.click();
                                 }
                             }
                         }
-                    } catch (err) {}
+                    } catch (err) {
+                        OriginalVideoPlayerQuality = null;
+                        IsPlayerAutoQuality = null;
+                    }
                 }
             };
 
@@ -281,49 +303,18 @@ function removeVideoAds() {
                     return new Promise(function(resolve, reject) {
                         var processAfter = async function(response) {
                             //Here we check the m3u8 for any ads and also try fallback player types if needed.
-                            //We first check if we can get a source quality ad-free stream, but only if the user has source set on the player.
-                            postMessage({
-                                key: 'GetVideoQuality'
-                            });
-                            if (IsPlayerAutoQuality == null) {
-                                postMessage({
-                                    key: 'CheckIfAutoQuality'
-                                });
-                            }
 
                             var responseText = await response.text();
                             var weaverText = null;
 
-                            //Here we check the video player quality setting, if set to 720p or higher, we try for a source quality ad-free stream.
-                            var isPlayerHighQuality = false;
-                            if (CurrentVideoPlayerQuality) {
-                                if (CurrentVideoPlayerQuality.includes('1080') || CurrentVideoPlayerQuality.includes('720')) {
-                                    isPlayerHighQuality = true;
-                                }
+                            weaverText = await processM3U8(url, responseText, realFetch, PlayerType2);
+                            if (weaverText.includes(AdSignifier)) {
+                                weaverText = await processM3U8(url, responseText, realFetch, PlayerType3);
+                            }
+                            if (weaverText.includes(AdSignifier)) {
+                                weaverText = await processM3U8(url, responseText, realFetch, PlayerType4);
                             }
 
-                            if (isPlayerHighQuality == true) {
-                                //Due to Firefox causing video to freeze on quality changes we force the ad-free part to be 480p for now.
-                                weaverText = await processM3U8(url, responseText, realFetch, PlayerType2);
-                                //weaverText = await processM3U8(url, responseText, realFetch, PlayerType1);
-                                //if (weaverText.includes(AdSignifier)) {
-                                //    weaverText = await processM3U8(url, responseText, realFetch, PlayerType2);
-                                //}
-                                if (weaverText.includes(AdSignifier)) {
-                                    weaverText = await processM3U8(url, responseText, realFetch, PlayerType3);
-                                }
-                                if (weaverText.includes(AdSignifier)) {
-                                    weaverText = await processM3U8(url, responseText, realFetch, PlayerType4);
-                                }
-                            } else {
-                                weaverText = await processM3U8(url, responseText, realFetch, PlayerType2);
-                                if (weaverText.includes(AdSignifier)) {
-                                    weaverText = await processM3U8(url, responseText, realFetch, PlayerType3);
-                                }
-                                if (weaverText.includes(AdSignifier)) {
-                                    weaverText = await processM3U8(url, responseText, realFetch, PlayerType4);
-                                }
-                            }
                             resolve(new Response(weaverText));
                         };
                         var send = function() {
@@ -449,13 +440,7 @@ function removeVideoAds() {
 
                         var encodingsM3u8 = await encodingsM3u8Response.text();
 
-                        //We check if user has the player set to 720p, if so, use that encoding. If not, it will use 1080p or 480p, depending on the current player setting.
-                        var streamM3u8Url = null;
-                        if (CurrentVideoPlayerQuality && CurrentVideoPlayerQuality.includes('720') && PlayerType1 == playerType) {
-                            streamM3u8Url = encodingsM3u8.match(/^https:.*\.m3u8$/mg)[1];
-                        } else {
-                            streamM3u8Url = encodingsM3u8.match(/^https:.*\.m3u8$/mg)[0];
-                        }
+                        streamM3u8Url = encodingsM3u8.match(/^https:.*\.m3u8$/mg)[0];
 
                         var streamM3u8Response = await realFetch(streamM3u8Url);
                         if (streamM3u8Response.status == 200) {
@@ -496,20 +481,11 @@ function removeVideoAds() {
         } else {
             if (WasShowingAd) {
                 WasShowingAd = false;
-                if (IsPlayerAutoQuality && IsPlayerAutoQuality == true) {
-                    //Here we put the player back to auto quality.
-                    postMessage({
-                        key: 'ForceChangeQuality',
-                        value: 'auto'
-                    });
-                } else {
-                    //Here we put player back to original quality.
-                    postMessage({
-                        key: 'ForceChangeQuality',
-                        value: OriginalVideoPlayerQuality
-                    });
-                }
-                IsPlayerAutoQuality = null;
+                //Here we put player back to original quality and remove the blocking message.
+                postMessage({
+                    key: 'ForceChangeQuality',
+                    value: 'original'
+                });
                 postMessage({
                     key: 'PauseResumePlayer'
                 });
@@ -639,19 +615,12 @@ function removeVideoAds() {
         });
     }
 
-    function doTwitchPlayerTask(isPausePlay, isCheckQuality, isCorrectBuffer, isAutoQuality) {
+    function doTwitchPlayerTask(isPausePlay, isCheckQuality, isCorrectBuffer, isAutoQuality, setAutoQuality) {
         //This will do an instant pause/play to return to original quality once the ad is finished.
-        //We also hide the controls while doing the pause/play to make the image more seamless.
         //We also use this function to get the current video player quality set by the user.
         //We also use this function to quickly pause/play the player when switching tabs to stop delays.
         try {
             var videoController = null;
-            if (isPausePlay) {
-                videoController = document.querySelector('.video-player__overlay');
-                if (videoController) {
-                    videoController.style.visibility = "hidden";
-                }
-            }
             var videoPlayer = null;
 
             function findReactNode(root, constraint) {
@@ -673,40 +642,12 @@ function removeVideoAds() {
             if (rootNode && rootNode._reactRootContainer && rootNode._reactRootContainer._internalRoot && rootNode._reactRootContainer._internalRoot.current) {
                 reactRootNode = rootNode._reactRootContainer._internalRoot.current;
             }
-            if (!reactRootNode) {
-                if (isPausePlay) {
-                    if (videoController) {
-                        videoController.style.visibility = "visible";
-                    }
-                }
-                return;
-            }
             videoPlayer = findReactNode(reactRootNode, node => node.setPlayerActive && node.props && node.props.mediaPlayerInstance);
             videoPlayer = videoPlayer && videoPlayer.props && videoPlayer.props.mediaPlayerInstance ? videoPlayer.props.mediaPlayerInstance : null;
-            if (!videoPlayer) {
-                if (isPausePlay) {
-                    if (videoController) {
-                        videoController.style.visibility = "visible";
-                    }
-                }
-                return;
-            }
-            if (videoPlayer.isPaused()) {
-                if (isPausePlay) {
-                    if (videoController) {
-                        videoController.style.visibility = "visible";
-                    }
-                }
-                return;
-            }
+
             if (isPausePlay) {
                 videoPlayer.pause();
                 videoPlayer.play();
-                setTimeout(function() {
-                    if (videoController) {
-                        videoController.style.visibility = "visible";
-                    }
-                }, 6500);
                 return;
             }
             if (isCheckQuality) {
@@ -726,10 +667,15 @@ function removeVideoAds() {
                 }
                 var autoQuality = videoPlayer.isAutoQualityMode();
                 if (autoQuality) {
+                    videoPlayer.setAutoQualityMode(false);
                     return autoQuality;
                 } else {
                     return false;
                 }
+            }
+            if (setAutoQuality) {
+                videoPlayer.setAutoQualityMode(true);
+                return;
             }
             //This only happens when switching tabs and is to correct the high latency caused when opening background tabs and going to them at a later time.
             //We check that this is a live stream by the page URL, to prevent vod/clip pause/plays.
@@ -753,14 +699,7 @@ function removeVideoAds() {
                     }, 1000);
                 }
             } catch (err) {}
-        } catch (err) {
-            if (isPausePlay) {
-                var videoController = document.querySelector('.video-player__overlay');
-                if (videoController) {
-                    videoController.style.visibility = "visible";
-                }
-            }
-        }
+        } catch (err) {}
     }
 
     var localDeviceID = null;
