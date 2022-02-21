@@ -30,45 +30,6 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
-5.3.0:</br>
-Potential fix for stuck videos. Added to all versions.</br>
-
-5.2.7:</br>
-Potential fix for Firefox stuck video. Made version numbers the same for all versions.</br>
-
-5.2.6:</br>
-Remove temp fix for stuck video on Chrome only (Not needed).</br>
-
-5.2.5:</br>
-Temp fix for stuck video.</br>
-
-5.2.3:</br>
-Added extra check to prevent ads for some subbed users.</br>
-
-5.2.2:</br>
-Added client session, in case it's used in the future. Disabled ad-blocking for squad streams as it causes bugs.</br>
-
-5.2.1:</br>
-Fixed subbed channels bug. Fixed error 1000 bug.</br>
-
-5.2.0:</br>
-Added fallbacks for eventual UBlock bypass breaking.</br>
-
-5.1.2:</br>
-Fixed the non English streams letting ads through bug.</br>
-
-5.1.1:</br>
-Fixed video not pausing bug.</br>
-
-5.1.0:</br>
-Fixed stream delay bug, when opening background tabs and switching to them later.</br>
-
-5.0.2:</br>
-Added install message to let users know, that they must disable TTV LOL and Purple Ad-Block to prevent conflicts.</br>
-
-5.0.1:</br>
-Fixed missing video player bug when pausing/resuming.</br>
-
-5.0.0:</br>
-The extension will now automatically adjust the ad-free stream quality, without users needing to use the extension settings. This will help new users with buffering issues.</br>
+5.3.1:</br>
+Potential fix for stuck videos. Cleaned up code and fixed bugs.</br>
 
