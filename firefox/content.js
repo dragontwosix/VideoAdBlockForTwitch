@@ -183,6 +183,7 @@ function removeVideoAds() {
                     try {
                         var autoQuality = doTwitchPlayerTask(false, false, false, true, false);
                         var currentQuality = doTwitchPlayerTask(false, true, false, false, false);
+
                         if (IsPlayerAutoQuality == null) {
                             IsPlayerAutoQuality = autoQuality;
                         }
@@ -255,8 +256,7 @@ function removeVideoAds() {
                                                 doTwitchPlayerTask(false, false, false, true, true);
                                             }
                                         }
-                                        settingsCog.click();
-                                        settingsCog.click();
+
                                     }
                                 }
                             }
@@ -688,15 +688,16 @@ function removeVideoAds() {
                 if (isCorrectBuffer && isLive) {
                     //A timer is needed due to the player not resuming without it.
                     setTimeout(function() {
-                        //Is 5 seconds an acceptable max delay for low latency? Twitch will automatically re-adjust slowly downwards at this point to the correct lower latency within 2-5 minutes approx anyway.
-                        if (videoPlayer.isLiveLowLatency() && videoPlayer.getBufferDuration() > 5) {
+                        //If latency to broadcaster is above 5 or 15 seconds upon switching tabs, we pause and play the player to reset the latency.
+                        //If latency is between 0-6, user can manually pause and resume to reset latency further.
+                        if (videoPlayer.isLiveLowLatency() && videoPlayer.getLiveLatency() > 5) {
                             videoPlayer.pause();
                             videoPlayer.play();
-                        } else if (videoPlayer.getBufferDuration() > 15) {
+                        } else if (videoPlayer.getLiveLatency() > 15) {
                             videoPlayer.pause();
                             videoPlayer.play();
                         }
-                    }, 1000);
+                    }, 3000);
                 }
             } catch (err) {}
         } catch (err) {}
