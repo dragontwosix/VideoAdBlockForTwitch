@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.3.2:</br>
+Fixed unpause issue when switching tabs.</br>
+
 5.3.1:</br>
 Potential fix for stuck videos. Cleaned up code and fixed bugs.</br>
 
