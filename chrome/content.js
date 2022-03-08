@@ -250,6 +250,9 @@ function removeVideoAds() {
                                             }
                                             lowQuality[qualityToSelect].click();
 
+                                            var originalQuality = JSON.parse(OriginalVideoPlayerQuality);
+                                            window.localStorage.setItem('video-quality', '{"default":"'+originalQuality.group+'"}');
+
                                             if (e.data.value != null) {
                                                 OriginalVideoPlayerQuality = null;
                                                 IsPlayerAutoQuality = null;
