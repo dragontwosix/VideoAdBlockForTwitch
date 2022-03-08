@@ -30,6 +30,9 @@ Some people are worried by the permissions requested by the extension. We ask fo
 
 Changelog:
 
+5.3.3:</br>
+Fixed new tabs set to 480p issue.</br>
+
 5.3.2:</br>
 Fixed unpause issue when switching tabs.</br>
 
